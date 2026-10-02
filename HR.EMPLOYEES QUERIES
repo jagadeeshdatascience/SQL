@@ -1,0 +1,414 @@
+-- Assign Row Number Based on Highest Salary
+
+SELECT
+   employee_id,
+   first_name,
+   salary,
+
+   ROW_NUMBER() OVER(
+      ORDER BY salary DESC
+   ) AS row_num
+FROM hr.employees
+
+-- # Row Number Based on Lowest Salary 
+SELECT 
+   employee_id,
+   first_name,
+   salary,
+   ROW_NUMBER() OVER(
+      ORDER BY salary ASC
+   ) AS row_num
+FROM hr.employees
+
+--  Department-Wise Row Number
+  SELECT
+     employee_id,
+     first_name,
+     salary,
+     department_id,
+     ROW_NUMBER() OVER(
+        PARTITION BY department_id
+        ORDER BY salary DESC
+    ) AS row_num
+FROM hr.employees;
+
+-- Row Number Based on Hire Date
+  SELECT
+    employee_id,
+    first_name,
+    hire_date,
+
+    ROW_NUMBER() OVER (
+        ORDER BY hire_date ASC
+    ) AS joining_order
+
+FROM hr.employees;
+ 
+--  Latest Employee in Each Department
+
+SELECT *
+FROM
+(
+    SELECT
+        employee_id,
+        first_name,
+        department_id,
+        hire_date,
+
+        ROW_NUMBER() OVER (
+            PARTITION BY department_id
+            ORDER BY hire_date DESC
+        ) AS rn
+
+    FROM hr.employees
+)
+WHERE rn = 1;
+
+-- Top 3 Highest Paid Employees in Each Department
+SELECT *
+FROM
+(
+    SELECT
+      employee_id,
+      first_name,
+      department_id,
+      hire_date,
+      ROW_NUMBER() OVER(
+        PARTITION BY department_id
+        ORDER BY hire_date DESC
+    )  AS rn
+    FROM hr.employees
+)
+WHERE rn <= 3;
+-- Rank Employees Based on Salary
+
+SELECT 
+  employee_id,
+  first_name,
+  salary,
+  RANK() OVER(
+    ORDER BY salary DESC
+  ) AS best_employee
+FROM hr.employees;
+
+-- Rank Employees from Lowest Salary
+SELECT 
+  employee_id,
+  first_name,
+  salary,
+  RANK() OVER(
+    ORDER BY salary ASC
+  ) AS wrost_employee
+FROM hr.employees;
+
+-- Department-Wise Salary Rank
+SELECT 
+  employee_id,
+  first_name,
+  department_id,
+  salary,
+  RANK() OVER(
+    PARTITION BY department_id
+    ORDER BY Salary
+  ) AS department_rank
+FROM hr.employees;
+
+-- Rank Employees Based on Hire Date
+SELECT 
+  employee_id,
+  first_name,
+  hire_date,
+  RANK() OVER(
+    ORDER BY hire_date
+  )AS EMPLOYEE_RANK
+FROM hr.employees;
+
+-- Highest Paid Employees in Every Department
+SELECT *
+FROM
+(
+    SELECT 
+      employee_id,
+      first_name,
+      department_id,
+      salary,
+      RANK() OVER(
+        PARTITION BY department_id
+        ORDER BY salary DESC
+      ) AS HIGHEST_PAID
+    FROM hr.employees
+
+)
+where HIGHEST_PAID = 1;
+
+--  Top 3 Salary Ranks in Every Department
+SELECT * 
+FROM
+(
+      SELECT
+        employee_id,
+        first_name,
+        department_id,
+        salary,
+        RANK() OVER(
+            PARTITION BY department_id
+            ORDER BY salary DESC
+        ) AS TOP_RANKS
+    FROM hr.employees
+)
+WHERE TOP_RANKS <= 3;
+
+-- DENSE_RANK()
+-- Dense Rank Based on Salary
+SELECT
+  employee_id,
+  first_name,
+  salary,
+  DENSE_RANK() OVER(
+    ORDER BY salary DESC
+  ) AS salary_rank
+FROM hr.employees;
+
+--  Dense Rank from Lowest Salary
+SELECT 
+  employee_id,
+  first_name,
+  salary,
+  DENSE_RANK() OVER(
+    ORDER BY salary ASC
+  ) AS LOW_RANK
+FROM hr.employees;
+
+-- Department-Wise Dense Rank
+SELECT 
+  employee_id,
+  first_name,
+  department_id,
+  salary,
+  DENSE_RANK() OVER(
+    PARTITION BY department_id
+    ORDER BY salary DESC
+  ) AS department_rank
+from hr.employees
+
+-- Find Second Highest Salary
+SELECT *
+FROM
+(
+    SELECT 
+       employee_id,
+       first_name,
+       salary,
+       DENSE_RANK() OVER(
+        ORDER BY salary DESC
+       ) AS Second_highest
+    from hr.employees
+)
+where second_highest = 2;
+
+-- Third Highest Salary
+SELECT *
+FROM
+(
+    SELECT
+       employee_id,
+       first_name,
+       salary,
+       DENSE_RANK() OVER(
+        ORDER BY salary DESC
+       ) AS THIRD_HIGHEST
+    from hr.employees
+)
+where THIRD_HIGHEST = 3;
+
+-- Second Highest Salary in Every Department
+SELECT *
+FROM
+(
+    SELECT
+      employee_id,
+      first_name,
+      department_id,
+      salary,
+      DENSE_RANK() OVER(
+        PARTITION BY department_id
+        ORDER BY Salary DESC
+      ) AS EVERY_DEPARTMENT
+    from hr.employees
+)
+where EVERY_DEPARTMENT = 2;
+
+-- FIRST_VALUE()
+-- Display Highest Salary Against Every Employee
+SELECT 
+  employee_id,
+  first_name,
+  salary,
+  FIRST_VALUE(salary) OVER(
+    ORDER BY salary DESC
+  ) AS highest_salary
+from hr.employees;
+
+-- Display Lowest Salary Using FIRST_VALUE
+select 
+ employee_id,
+ first_name,
+ salary,
+ FIRST_VALUE(salary) over(
+    order by salary asc
+ ) as lowest_salary
+from hr.employees
+
+-- Highest Salary in Each Department
+    SELECT
+     employee_id,
+     first_name,
+     department_id,
+     salary,
+     FIRST_VALUE(salary) over(
+        partition by department_id
+        order by salary DESC
+     ) as highest_salary
+   from hr.employees
+
+-- Name of Highest Paid Employee in Each Department
+select 
+ employee_id,
+ first_name,
+ department_id,
+ salary,
+ first_value(first_name) over(
+    partition by department_id
+    order by salary desc
+ ) as HIGHEST_PAID
+ from hr.employees;
+
+--  Earliest Joining Date in Each Department
+SELECT 
+ employee_id,
+ department_id,
+ first_name,
+ hire_date,
+ first_value(hire_date) over(
+    partition by department_id
+    order by hire_date asc
+ ) as early_joining
+from hr.employees;
+
+-- First Employee Who Joined Each Department
+select
+ employee_id,
+ first_name,
+ salary,
+ hire_date,
+ department_id,
+ first_value(first_name) over(
+    partition by department_id
+    order by hire_date ASC
+ ) as first_employee
+from hr.employees;
+
+-- Display Lowest Salary Against Every Employee
+
+    select 
+    employee_id,
+    salary,
+    first_name,
+    min(salary) over() as min_salary
+    from hr.employees;
+
+-- Highest Salary Using LAST_VALUE
+select
+ employee_id,
+ first_name,
+ salary,
+ last_value(salary) over(
+    order by salary asc
+    rows between unbounded preceding and unbounded following
+ ) as high_salary
+from hr.employees;
+
+-- highest salary
+select *
+from(
+    select
+     employee_id,
+     first_name,
+     salary,
+     rank() over(
+        order by salary desc
+     ) as highest_salary
+    from hr.employees
+)
+where highest_salary = 1;
+
+--  Display Lowest Salary Against Every Employee
+select 
+ employee_id,
+ first_name,
+ salary,
+ last_value(salary) over(
+    order by salary desc
+    rows between unbounded preceding and unbounded following
+ ) as lowest_salary
+from hr.employees;
+
+--  Lowest Salary in Each Department
+SELECT
+ employee_id,
+ first_name,
+ department_id,
+ salary,
+ last_value(salary) over(
+    partition by department_id
+    order by salary DESC
+    rows between unbounded preceding and unbounded following
+ ) as lowest_salary
+from hr.employees;
+
+-- Lowest Paid Employee Name in Each Department
+select 
+ employee_id,
+ first_name,
+ department_id,
+ salary,
+ last_value(first_name) over(
+    partition by department_id
+    order by salary desc
+    rows between unbounded preceding and unbounded following
+ ) as LOWEST_PAID
+from hr.employees;
+
+-- Latest Hire Date in Each Department
+select 
+  employee_id,
+  first_name,
+  department_id,
+  hire_date,
+  last_value(hire_date) over(
+    partition by department_id
+    order by hire_date asc
+    rows between unbounded preceding and unbounded following
+  ) as latest_hire
+from hr.employees;
+
+
+--  Compare Employee Salary with Highest and Lowest Department Salary
+select 
+    employee_id,
+    first_name,
+    department_id,
+    salary,
+    first_value(salary) over(
+        partition by department_id
+        order by salary DESC
+        rows between unbounded preceding and unbounded following
+    ) as highest_salary,
+
+    last_value(salary) over(
+        partition by department_id
+        order by salary desc
+        rows between unbounded preceding and unbounded following
+    ) as lowest_salary
+from hr.employees
+order by department_id, salary desc;
