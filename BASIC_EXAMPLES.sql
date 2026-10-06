@@ -35,7 +35,7 @@ select *
 from hr.employees
 where job_id = 'SA_REP';
 
--- Display employees whose furst_name is steven
+-- Display employees whose first_name is steven
 select *
 from hr.employees
 where first_name = 'steven';
