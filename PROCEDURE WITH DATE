@@ -1,0 +1,383 @@
+-- SALES AGGREGATION REPORT USING DATE VARIABLES
+-- ORACLE SQL + PL/SQL
+-- ============================================================
+
+SET SERVEROUTPUT ON;
+
+
+-- ============================================================
+-- 1. CREATE SALES TABLE
+-- ============================================================
+
+CREATE TABLE retail_sales
+(
+    sale_id       NUMBER PRIMARY KEY,
+    product_name  VARCHAR2(50),
+    category      VARCHAR2(50),
+    quantity      NUMBER,
+    amount        NUMBER(10,2),
+    sale_date     DATE
+);
+
+
+-- ============================================================
+-- 2. INSERT SAMPLE DATA
+-- ============================================================
+
+INSERT INTO retail_sales
+VALUES (1, 'Laptop', 'Electronics', 2, 100000,
+        TO_DATE('01-10-2026','DD-MM-YYYY'));
+
+INSERT INTO retail_sales
+VALUES (2, 'Mobile', 'Electronics', 3, 75000,
+        TO_DATE('02-10-2026','DD-MM-YYYY'));
+
+INSERT INTO retail_sales
+VALUES (3, 'Chair', 'Furniture', 4, 32000,
+        TO_DATE('03-10-2026','DD-MM-YYYY'));
+
+INSERT INTO retail_sales
+VALUES (4, 'Laptop', 'Electronics', 1, 50000,
+        TO_DATE('05-10-2026','DD-MM-YYYY'));
+
+INSERT INTO retail_sales
+VALUES (5, 'Table', 'Furniture', 2, 24000,
+        TO_DATE('07-10-2026','DD-MM-YYYY'));
+
+INSERT INTO retail_sales
+VALUES (6, 'Mobile', 'Electronics', 2, 50000,
+        TO_DATE('10-10-2026','DD-MM-YYYY'));
+
+INSERT INTO retail_sales
+VALUES (7, 'Headphones', 'Electronics', 5, 10000,
+        TO_DATE('12-10-2026','DD-MM-YYYY'));
+
+INSERT INTO retail_sales
+VALUES (8, 'Chair', 'Furniture', 3, 24000,
+        TO_DATE('15-10-2026','DD-MM-YYYY'));
+
+INSERT INTO retail_sales
+VALUES (9, 'Laptop', 'Electronics', 2, 110000,
+        TO_DATE('18-10-2026','DD-MM-YYYY'));
+
+INSERT INTO retail_sales
+VALUES (10, 'Table', 'Furniture', 1, 12000,
+        TO_DATE('20-10-2026','DD-MM-YYYY'));
+
+COMMIT;
+
+
+-- Check data
+
+SELECT * FROM retail_sales;
+
+
+-- ============================================================
+-- PROCEDURE 1
+-- SALES REPORT BETWEEN TWO DATES
+-- ============================================================
+
+CREATE OR REPLACE PROCEDURE sales_report
+(
+    p_start_date IN DATE,
+    p_end_date   IN DATE
+)
+AS
+
+    v_total_sales     NUMBER;
+    v_total_quantity  NUMBER;
+    v_total_orders    NUMBER;
+
+BEGIN
+
+    SELECT
+        SUM(amount),
+        SUM(quantity),
+        COUNT(*)
+    INTO
+        v_total_sales,
+        v_total_quantity,
+        v_total_orders
+    FROM retail_sales
+    WHERE sale_date BETWEEN p_start_date AND p_end_date;
+
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Start Date     : ' ||
+        TO_CHAR(p_start_date, 'DD-MM-YYYY')
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'End Date       : ' ||
+        TO_CHAR(p_end_date, 'DD-MM-YYYY')
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Total Sales    : ' || v_total_sales
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Total Quantity : ' || v_total_quantity
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Total Orders   : ' || v_total_orders
+    );
+
+END;
+/
+
+
+-- ============================================================
+-- CALL PROCEDURE 1
+-- ============================================================
+
+BEGIN
+
+    sales_report(
+        TO_DATE('01-10-2026','DD-MM-YYYY'),
+        TO_DATE('10-10-2026','DD-MM-YYYY')
+    );
+
+END;
+/
+
+
+-- Example output:
+--
+-- Start Date     : 01-10-2026
+-- End Date       : 10-10-2026
+-- Total Sales    : 331000
+-- Total Quantity : 14
+-- Total Orders   : 6
+
+
+-- ============================================================
+-- PROCEDURE 2
+-- COMPLETE SALES AGGREGATION REPORT
+-- SUM + COUNT + AVG + MIN + MAX
+-- ============================================================
+
+CREATE OR REPLACE PROCEDURE sales_summary
+(
+    p_start_date IN DATE,
+    p_end_date   IN DATE
+)
+AS
+
+    v_total_sales   NUMBER;
+    v_avg_sales     NUMBER;
+    v_min_sales     NUMBER;
+    v_max_sales     NUMBER;
+    v_order_count   NUMBER;
+
+BEGIN
+
+    SELECT
+        SUM(amount),
+        AVG(amount),
+        MIN(amount),
+        MAX(amount),
+        COUNT(*)
+    INTO
+        v_total_sales,
+        v_avg_sales,
+        v_min_sales,
+        v_max_sales,
+        v_order_count
+    FROM retail_sales
+    WHERE sale_date BETWEEN p_start_date AND p_end_date;
+
+
+    DBMS_OUTPUT.PUT_LINE('===== SALES REPORT =====');
+
+    DBMS_OUTPUT.PUT_LINE(
+        'From : ' ||
+        TO_CHAR(p_start_date,'DD-MM-YYYY')
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'To   : ' ||
+        TO_CHAR(p_end_date,'DD-MM-YYYY')
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Total Sales   : ' || v_total_sales
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Average Sale  : ' || ROUND(v_avg_sales,2)
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Minimum Sale  : ' || v_min_sales
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Maximum Sale  : ' || v_max_sales
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Total Orders  : ' || v_order_count
+    );
+
+END;
+/
+
+
+-- ============================================================
+-- CALL PROCEDURE 2
+-- ============================================================
+
+BEGIN
+
+    sales_summary(
+        TO_DATE('01-10-2026','DD-MM-YYYY'),
+        TO_DATE('20-10-2026','DD-MM-YYYY')
+    );
+
+END;
+/
+
+
+-- ============================================================
+-- PROCEDURE 3
+-- SALES REPORT FOR ONE PARTICULAR DATE
+-- ============================================================
+
+CREATE OR REPLACE PROCEDURE daily_sales_report
+(
+    p_date IN DATE
+)
+AS
+
+    v_total_sales    NUMBER;
+    v_total_quantity NUMBER;
+    v_orders         NUMBER;
+
+BEGIN
+
+    SELECT
+        SUM(amount),
+        SUM(quantity),
+        COUNT(*)
+    INTO
+        v_total_sales,
+        v_total_quantity,
+        v_orders
+    FROM retail_sales
+    WHERE sale_date = p_date;
+
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Date           : ' ||
+        TO_CHAR(p_date,'DD-MM-YYYY')
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Total Sales    : ' || v_total_sales
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Quantity Sold  : ' || v_total_quantity
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Orders         : ' || v_orders
+    );
+
+END;
+/
+
+
+-- ============================================================
+-- CALL DAILY REPORT
+-- ============================================================
+
+BEGIN
+
+    daily_sales_report(
+        TO_DATE('05-10-2026','DD-MM-YYYY')
+    );
+
+END;
+/
+
+
+-- ============================================================
+-- PROCEDURE 4
+-- CATEGORY SALES REPORT BETWEEN TWO DATES
+-- ============================================================
+
+CREATE OR REPLACE PROCEDURE category_sales_report
+(
+    p_category   IN VARCHAR2,
+    p_start_date IN DATE,
+    p_end_date   IN DATE
+)
+AS
+
+    v_total_sales     NUMBER;
+    v_total_quantity  NUMBER;
+    v_orders          NUMBER;
+
+BEGIN
+
+    SELECT
+        SUM(amount),
+        SUM(quantity),
+        COUNT(*)
+    INTO
+        v_total_sales,
+        v_total_quantity,
+        v_orders
+    FROM retail_sales
+    WHERE category = p_category
+    AND sale_date BETWEEN p_start_date AND p_end_date;
+
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Category       : ' || p_category
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Start Date     : ' ||
+        TO_CHAR(p_start_date,'DD-MM-YYYY')
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'End Date       : ' ||
+        TO_CHAR(p_end_date,'DD-MM-YYYY')
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Total Sales    : ' || v_total_sales
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Quantity Sold  : ' || v_total_quantity
+    );
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Orders         : ' || v_orders
+    );
+
+END;
+/
+
+
+-- ============================================================
+-- CALL CATEGORY REPORT
+-- Electronics sales from Oct 1 to Oct 15
+-- ============================================================
+
+BEGIN
+
+    category_sales_report(
+        'Electronics',
+        TO_DATE('01-10-2026','DD-MM-YYYY'),
+        TO_DATE('15-10-2026','DD-MM-YYYY')
+    );
+
+END;
+/
