@@ -1,0 +1,484 @@
+-- ============================================================
+-- RETAIL MANAGEMENT SYSTEM
+-- ORACLE PL/SQL - ALL 6 BASIC DML TRIGGERS
+-- ============================================================
+-- BUSINESS TABLE: RETAIL_PRODUCTS
+-- AUDIT TABLES: RETAIL_AUDIT, RETAIL_UPDATE_HISTORY
+--
+-- TRIGGERS:
+-- 1. BEFORE INSERT
+-- 2. AFTER INSERT
+-- 3. BEFORE UPDATE
+-- 4. AFTER UPDATE
+-- 5. BEFORE DELETE
+-- 6. AFTER DELETE
+-- ============================================================
+
+
+-- ============================================================
+-- SECTION 1: CREATE MAIN RETAIL TABLE
+-- ============================================================
+
+CREATE TABLE retail_products (
+    product_id NUMBER PRIMARY KEY,
+    product_name VARCHAR2(100) NOT NULL,
+    category VARCHAR2(50),
+    price NUMBER(10,2),
+    stock_quantity NUMBER,
+    created_date DATE DEFAULT SYSDATE
+);
+
+
+-- ============================================================
+-- SECTION 2: CREATE RETAIL AUDIT TABLE
+-- ============================================================
+-- Stores INSERT and DELETE events.
+
+CREATE TABLE retail_audit (
+    audit_id NUMBER GENERATED ALWAYS AS IDENTITY,
+    product_id NUMBER,
+    product_name VARCHAR2(100),
+    operation_type VARCHAR2(20),
+    operation_date TIMESTAMP DEFAULT SYSTIMESTAMP
+);
+
+
+-- ============================================================
+-- SECTION 3: CREATE UPDATE HISTORY TABLE
+-- ============================================================
+-- Stores old and new price/stock information.
+
+CREATE TABLE retail_update_history (
+    history_id NUMBER GENERATED ALWAYS AS IDENTITY,
+    product_id NUMBER,
+    old_price NUMBER(10,2),
+    new_price NUMBER(10,2),
+    old_stock NUMBER,
+    new_stock NUMBER,
+    updated_date TIMESTAMP DEFAULT SYSTIMESTAMP
+);
+
+
+-- ============================================================
+-- TRIGGER 1: BEFORE INSERT
+-- ============================================================
+-- BUSINESS SCENARIO:
+-- A retail company should not allow products with:
+-- 1. Price less than or equal to zero
+-- 2. Negative stock quantity
+-- 3. Missing product name
+--
+-- SOURCE TABLE: RETAIL_PRODUCTS
+-- AFFECTED TABLE: RETAIL_PRODUCTS (validation)
+--
+-- This trigger executes before a product is inserted.
+-- ============================================================
+
+CREATE OR REPLACE TRIGGER trg_retail_before_insert
+BEFORE INSERT ON retail_products
+FOR EACH ROW
+BEGIN
+
+    -- Validate product name
+    IF TRIM(:NEW.product_name) IS NULL THEN
+        RAISE_APPLICATION_ERROR(
+            -20001,
+            'Product name cannot be empty'
+        );
+    END IF;
+
+    -- Validate product price
+    IF :NEW.price IS NULL OR :NEW.price <= 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20002,
+            'Product price must be greater than zero'
+        );
+    END IF;
+
+    -- Validate stock quantity
+    IF :NEW.stock_quantity IS NULL
+       OR :NEW.stock_quantity < 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20003,
+            'Stock quantity cannot be negative'
+        );
+    END IF;
+
+END;
+/
+
+
+-- ============================================================
+-- TRIGGER 2: AFTER INSERT
+-- ============================================================
+-- BUSINESS SCENARIO:
+-- Whenever a new product is added to the retail system,
+-- automatically create an audit record.
+--
+-- SOURCE TABLE: RETAIL_PRODUCTS
+-- AFFECTED TABLE: RETAIL_AUDIT
+--
+-- Example:
+-- Product 101 - Laptop is inserted.
+-- An INSERT audit record is created automatically.
+-- ============================================================
+
+CREATE OR REPLACE TRIGGER trg_retail_after_insert
+AFTER INSERT ON retail_products
+FOR EACH ROW
+BEGIN
+
+    INSERT INTO retail_audit (
+        product_id,
+        product_name,
+        operation_type,
+        operation_date
+    )
+    VALUES (
+        :NEW.product_id,
+        :NEW.product_name,
+        'INSERT',
+        SYSTIMESTAMP
+    );
+
+END;
+/
+
+
+-- ============================================================
+-- TRIGGER 3: BEFORE UPDATE
+-- ============================================================
+-- BUSINESS SCENARIO:
+-- Retail managers can update product prices and stock.
+--
+-- BUSINESS RULES:
+-- 1. Product price must remain positive.
+-- 2. Stock cannot become negative.
+-- 3. Price increase cannot exceed 50% in one update.
+--
+-- SOURCE TABLE: RETAIL_PRODUCTS
+-- AFFECTED TABLE: RETAIL_PRODUCTS (validation)
+--
+-- Example:
+-- Old price = 50000
+-- New price = 90000
+-- Increase = 80%
+-- Result: UPDATE rejected.
+-- ============================================================
+
+CREATE OR REPLACE TRIGGER trg_retail_before_update
+BEFORE UPDATE ON retail_products
+FOR EACH ROW
+BEGIN
+
+    -- Prevent invalid price
+    IF :NEW.price IS NULL OR :NEW.price <= 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20004,
+            'Updated price must be greater than zero'
+        );
+    END IF;
+
+    -- Prevent negative stock
+    IF :NEW.stock_quantity IS NULL
+       OR :NEW.stock_quantity < 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20005,
+            'Stock cannot become negative'
+        );
+    END IF;
+
+    -- Prevent price increase above 50%
+    IF :OLD.price IS NOT NULL
+       AND :OLD.price > 0
+       AND :NEW.price > (:OLD.price * 1.50) THEN
+
+        RAISE_APPLICATION_ERROR(
+            -20006,
+            'Price increase cannot exceed 50 percent'
+        );
+
+    END IF;
+
+END;
+/
+
+
+-- ============================================================
+-- TRIGGER 4: AFTER UPDATE
+-- ============================================================
+-- BUSINESS SCENARIO:
+-- Whenever a product price or stock changes,
+-- maintain its previous and updated values.
+--
+-- SOURCE TABLE: RETAIL_PRODUCTS
+-- AFFECTED TABLE: RETAIL_UPDATE_HISTORY
+--
+-- Example:
+-- Product ID = 101
+-- Old price = 50000
+-- New price = 55000
+-- Old stock = 20
+-- New stock = 15
+--
+-- The trigger stores these values in the history table.
+-- ============================================================
+
+CREATE OR REPLACE TRIGGER trg_retail_after_update
+AFTER UPDATE ON retail_products
+FOR EACH ROW
+BEGIN
+
+    -- Record only actual changes
+    IF DECODE(:OLD.price, :NEW.price, 1, 0) = 0
+       OR DECODE(
+           :OLD.stock_quantity,
+           :NEW.stock_quantity,
+           1, 0
+       ) = 0 THEN
+
+        INSERT INTO retail_update_history (
+            product_id,
+            old_price,
+            new_price,
+            old_stock,
+            new_stock,
+            updated_date
+        )
+        VALUES (
+            :OLD.product_id,
+            :OLD.price,
+            :NEW.price,
+            :OLD.stock_quantity,
+            :NEW.stock_quantity,
+            SYSTIMESTAMP
+        );
+
+    END IF;
+
+END;
+/
+
+
+-- ============================================================
+-- TRIGGER 5: BEFORE DELETE
+-- ============================================================
+-- BUSINESS SCENARIO:
+-- A retail company should not delete a product
+-- if stock is still available in the warehouse.
+--
+-- SOURCE TABLE: RETAIL_PRODUCTS
+-- AFFECTED TABLE: RETAIL_PRODUCTS (validation)
+--
+-- Example:
+-- Product 101 has stock = 15.
+-- DELETE is rejected.
+--
+-- Product 102 has stock = 0.
+-- DELETE is allowed.
+-- ============================================================
+
+CREATE OR REPLACE TRIGGER trg_retail_before_delete
+BEFORE DELETE ON retail_products
+FOR EACH ROW
+BEGIN
+
+    IF :OLD.stock_quantity > 0 THEN
+
+        RAISE_APPLICATION_ERROR(
+            -20007,
+            'Cannot delete product with available stock'
+        );
+
+    END IF;
+
+END;
+/
+
+
+-- ============================================================
+-- TRIGGER 6: AFTER DELETE
+-- ============================================================
+-- BUSINESS SCENARIO:
+-- Whenever a product is deleted, automatically
+-- store its information in the audit table.
+--
+-- SOURCE TABLE: RETAIL_PRODUCTS
+-- AFFECTED TABLE: RETAIL_AUDIT
+--
+-- Example:
+-- Product 102 - Mouse is deleted.
+-- Audit table records DELETE operation.
+-- ============================================================
+
+CREATE OR REPLACE TRIGGER trg_retail_after_delete
+AFTER DELETE ON retail_products
+FOR EACH ROW
+BEGIN
+
+    INSERT INTO retail_audit (
+        product_id,
+        product_name,
+        operation_type,
+        operation_date
+    )
+    VALUES (
+        :OLD.product_id,
+        :OLD.product_name,
+        'DELETE',
+        SYSTIMESTAMP
+    );
+
+END;
+/
+
+
+-- ============================================================
+-- SECTION 4: INSERT SAMPLE RETAIL PRODUCTS
+-- ============================================================
+-- Both BEFORE INSERT and AFTER INSERT triggers execute.
+
+INSERT INTO retail_products
+(product_id, product_name, category, price, stock_quantity)
+VALUES
+(101, 'Laptop', 'Electronics', 50000, 20);
+
+INSERT INTO retail_products
+(product_id, product_name, category, price, stock_quantity)
+VALUES
+(102, 'Mouse', 'Accessories', 500, 0);
+
+INSERT INTO retail_products
+(product_id, product_name, category, price, stock_quantity)
+VALUES
+(103, 'Keyboard', 'Accessories', 1500, 30);
+
+INSERT INTO retail_products
+(product_id, product_name, category, price, stock_quantity)
+VALUES
+(104, 'Monitor', 'Electronics', 12000, 10);
+
+COMMIT;
+
+
+-- ============================================================
+-- SECTION 5: TEST BEFORE INSERT TRIGGER
+-- ============================================================
+-- INVALID PRODUCT PRICE
+-- Expected result: ORA-20002
+--
+-- Run separately to observe the error.
+
+-- INSERT INTO retail_products
+-- (product_id, product_name, category, price, stock_quantity)
+-- VALUES (105, 'Printer', 'Electronics', -5000, 10);
+
+
+-- ============================================================
+-- SECTION 6: TEST AFTER INSERT TRIGGER
+-- ============================================================
+-- Verify automatic audit records.
+
+SELECT *
+FROM retail_audit
+ORDER BY audit_id;
+
+
+-- ============================================================
+-- SECTION 7: TEST BEFORE UPDATE TRIGGER
+-- ============================================================
+-- Valid price revision:
+-- Laptop price changes from 50000 to 55000.
+
+UPDATE retail_products
+SET price = 55000
+WHERE product_id = 101;
+
+
+-- ============================================================
+-- SECTION 8: TEST AFTER UPDATE TRIGGER
+-- ============================================================
+-- Reduce laptop stock from 20 to 15.
+
+UPDATE retail_products
+SET stock_quantity = 15
+WHERE product_id = 101;
+
+-- Check history records.
+
+SELECT *
+FROM retail_update_history
+ORDER BY history_id;
+
+
+-- ============================================================
+-- SECTION 9: TEST INVALID UPDATE
+-- ============================================================
+-- Attempt to increase laptop price above 50%.
+-- Expected result: ORA-20006
+
+-- UPDATE retail_products
+-- SET price = 90000
+-- WHERE product_id = 101;
+
+
+-- ============================================================
+-- SECTION 10: TEST BEFORE DELETE TRIGGER
+-- ============================================================
+-- Laptop has stock = 15.
+-- Expected result: ORA-20007
+
+-- DELETE FROM retail_products
+-- WHERE product_id = 101;
+
+
+-- ============================================================
+-- SECTION 11: TEST AFTER DELETE TRIGGER
+-- ============================================================
+-- Mouse has stock = 0.
+-- DELETE is allowed.
+
+DELETE FROM retail_products
+WHERE product_id = 102;
+
+COMMIT;
+
+
+-- ============================================================
+-- SECTION 12: VERIFY FINAL RESULTS
+-- ============================================================
+
+-- Current products
+SELECT *
+FROM retail_products
+ORDER BY product_id;
+
+-- INSERT and DELETE audit records
+SELECT *
+FROM retail_audit
+ORDER BY audit_id;
+
+-- Price and stock update history
+SELECT *
+FROM retail_update_history
+ORDER BY history_id;
+
+
+-- ============================================================
+-- SECTION 13: DISPLAY ALL 6 TRIGGERS
+-- ============================================================
+
+SELECT
+    trigger_name,
+    triggering_event,
+    trigger_type,
+    table_name,
+    status
+FROM user_triggers
+WHERE table_name = 'RETAIL_PRODUCTS'
+ORDER BY trigger_name;
+
+
+-- ============================================================
+-- END OF RETAIL TRIGGER PROJECT
+-- ============================================================
